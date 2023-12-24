@@ -1,45 +1,101 @@
+const express =  require("express")
+const cors = require("cors")
+const mongoose = require ("mongoose")
+const dotenv = require("dotenv").config()
 
-
-const express = require ("express")
-const cors = require ("cors")
-const mongoose = require("mongoose")
-const dotenv = require('dotenv').config()
-
-const app = express ()
-app.use (cors())
+const app = express()
+app.use(cors())
 app.use(express.json({limit : "10mb"}))
 
-const PORT = process.env.PORT || 8080
+const PORT = process.env.PORT || 8000
 
-//MONGODB cnonnection
+//MONGODB CONNECTION
 console.log(process.env.MONGODB_URL)
 mongoose.set('strictQuery', false);
-mongoose.connect(process.env.BASE_URL_DB_PRODUCCION).then(()=>console.log("Connected to Database")).catch(
-    (err)=>console.log(err)
-)
+mongoose.connect(process.env.MONGODB_URL)
+.then(()=>console.log("Connect to database"))
+.catch((err)=>console.log(err))
 
-//schema
-const userSchema=mongoose.Schema({
+//Schema
+const userSchema = mongoose.Schema({
     firstName: String,
     lastName: String,
     email: {
-        type: String,
-        unique: true,
-    },
+        type  : String,
+        unique : true
+    } ,
     password: String,
     confirmpassword: String,
-    image: String   
+    image : String,
+   
 })
- //
- const model  =mongoose.model("user",userSchema)
+
+//
+
+const userModel = mongoose.model("user",userSchema)
 
 //API
-app.get("/", (req,res)=>{
+app.get ("/",(req,res)=>{
     res.send("Server is running")
 })
 
-app.post("/signup", (req,res)=>{
-    console.log(req.body)
-})
 
-app.listen(PORT, ()=>console.log("server is running at port:" + PORT ))
+//sign up
+app.post("/signup",async(req,res)=>{
+
+    console.log(req.body);
+    const {email} = req.body;
+    
+    try {
+        const existingUser = await userModel.findOne({ email: email }).exec();
+
+        if (existingUser) {
+            res.json({ message: "Email id is already registered", alert: false });
+        } else {
+            const newUser = new userModel(req.body);
+            await newUser.save();
+            res.json({ message: "Successfully signed up", alert: true });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "An error occurred" });
+    }
+
+   
+    
+});
+
+//api login
+app.post("/login", async (req, res) => {
+    console.log(req.body);
+    const { email } = req.body;
+  
+    try {
+      const result = await userModel.findOne({ email: email }).exec();
+  
+      if (result) {
+        console.log(result);
+        const dataSend = {
+          _id: result._id,
+          firstName: result.firstName,
+          lastName: result.lastName,
+          email: result.email,
+          image: result.image,
+        };
+        console.log(dataSend);
+        res.send({ message: "Login is successful", alert: true, data: dataSend });
+      } else {
+        res.send({ message: "Email not found please  sign up", alert: false });
+      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "An error occurred" });
+    }
+  });
+  
+  
+  
+  
+
+
+app.listen(PORT,()=>console.log("server is running at port:" + PORT))
